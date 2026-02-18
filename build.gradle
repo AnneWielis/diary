@@ -5,7 +5,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.4.2'
+        classpath 'com.android.tools.build:gradle:9.0.1'
     }
 }
 
@@ -23,16 +23,18 @@ allprojects {
 
 apply plugin: 'com.android.application'
 
+android.buildFeatures.buildConfig = true
+
 android {
-    compileSdkVersion 28
+    compileSdkVersion 33
     namespace "org.billthefarmer.diary"
 
     defaultConfig {
         applicationId "org.billthefarmer.diary"
-        minSdkVersion 21
-        targetSdkVersion 28
-        versionName "1.105"
-        versionCode 1105
+        minSdkVersion 33
+        targetSdkVersion 36
+        versionName "1.2.0"
+        versionCode 1200
 
         buildConfigField "long", "BUILT", System.currentTimeMillis() + "L"
     }
@@ -56,4 +58,7 @@ dependencies {
     implementation 'com.github.billthefarmer:CustomCalendarView:v1.06'
     implementation 'com.github.billthefarmer:MarkdownView:v1.11'
     implementation 'org.commonmark:commonmark:0.21.0'
+    implementation 'androidx.annotation:annotation:1.1.0'
+    implementation "androidx.annotation:annotation:1.7.1"
+    implementation 'com.android.support:support-v4:23.0.0'
 }

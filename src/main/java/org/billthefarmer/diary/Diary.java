@@ -16,7 +16,10 @@
 
 package org.billthefarmer.diary;
 
+import static android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION;
+
 import android.Manifest;
+import android.Manifest.permission;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
@@ -39,6 +42,8 @@ import android.preference.PreferenceManager;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintManager;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.text.Editable;
 import android.text.Html;
 import android.text.Spanned;
@@ -101,6 +106,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import androidx.annotation.NonNull;
+import android.Manifest;
+
 
 import org.billthefarmer.markdown.MarkdownView;
 import org.billthefarmer.view.CustomCalendarDialog;
@@ -112,8 +120,7 @@ import org.billthefarmer.view.DayView;
 @SuppressWarnings("deprecation")
 public class Diary extends Activity
     implements DatePickerDialog.OnDateSetListener,
-    CustomCalendarDialog.OnDateSetListener
-{
+    CustomCalendarDialog.OnDateSetListener {
     public final static int ADD_MEDIA = 1;
     public final static int EDIT_STYLES = 2;
     public final static int CREATE_BACKUP = 3;
@@ -136,8 +143,8 @@ public class Diary extends Activity
     public static final int ACCEPT = 0;
     public static final int EDIT = 1;
 
-    public static final int LIGHT  = 0;
-    public static final int DARK   = 1;
+    public static final int LIGHT = 0;
+    public static final int DARK = 1;
     public static final int SYSTEM = 2;
 
     public static final int VERSION_CODE_S_V2 = 32;
@@ -155,29 +162,29 @@ public class Diary extends Activity
 
     // Patterns
     public final static Pattern PATTERN_CHARS =
-        Pattern.compile("[\\(\\)\\[\\]\\{\\}\\<\\>\"'`]");
+            Pattern.compile("[\\(\\)\\[\\]\\{\\}\\<\\>\"'`]");
     public final static Pattern MEDIA_PATTERN =
-        Pattern.compile("!\\[(.*?)\\]\\((.+?)\\)", Pattern.MULTILINE);
+            Pattern.compile("!\\[(.*?)\\]\\((.+?)\\)", Pattern.MULTILINE);
     public final static Pattern EVENT_PATTERN =
-        Pattern.compile("^@ *(\\d{1,2}:\\d{2}) +(.+)$", Pattern.MULTILINE);
+            Pattern.compile("^@ *(\\d{1,2}:\\d{2}) +(.+)$", Pattern.MULTILINE);
     public final static Pattern MAP_PATTERN =
-        Pattern.compile("\\[(?:osm:)?(-?\\d+[,.]\\d+)[,;] ?(-?\\d+[,.]\\d+)\\]",
-                        Pattern.MULTILINE);
+            Pattern.compile("\\[(?:osm:)?(-?\\d+[,.]\\d+)[,;] ?(-?\\d+[,.]\\d+)\\]",
+                    Pattern.MULTILINE);
     public final static Pattern GEO_PATTERN =
-        Pattern.compile("geo:(-?\\d+[.]\\d+), ?(-?\\d+[.]\\d+).*");
+            Pattern.compile("geo:(-?\\d+[.]\\d+), ?(-?\\d+[.]\\d+).*");
     public final static Pattern DATE_PATTERN =
-        Pattern.compile("(?<!`)\\[(.+?)\\]\\(date: ?(\\d+.\\d+.\\d+)\\)(?!`)",
-                        Pattern.MULTILINE);
+            Pattern.compile("(?<!`)\\[(.+?)\\]\\(date: ?(\\d+.\\d+.\\d+)\\)(?!`)",
+                    Pattern.MULTILINE);
     public final static Pattern POSN_PATTERN =
-        Pattern.compile("^ ?\\[([<#>])\\]: ?#(?: ?\\((\\d+)\\))? *$",
-                        Pattern.MULTILINE);
+            Pattern.compile("^ ?\\[([<#>])\\]: ?#(?: ?\\((\\d+)\\))? *$",
+                    Pattern.MULTILINE);
     public final static Pattern FILE_PATTERN =
-        Pattern.compile("([0-9]{4}).([0-9]{2}).([0-9]{2}).(txt|md)$");
+            Pattern.compile("([0-9]{4}).([0-9]{2}).([0-9]{2}).(txt|md)$");
     public final static Pattern TEMP_PATTERN =
-        Pattern.compile("<<date *(.*)>>", Pattern.MULTILINE);
+            Pattern.compile("<<date *(.*)>>", Pattern.MULTILINE);
     public final static Pattern CHECK_PATTERN = Pattern.compile
-        ("^\\s*(?:[-+*]|\\d+\\.)\\s+\\[(X|x|\\s)\\]\\s+(?=\\p{Graph}+)",
-                        Pattern.MULTILINE);
+            ("^\\s*(?:[-+*]|\\d+\\.)\\s+\\[(X|x|\\s)\\]\\s+(?=\\p{Graph}+)",
+                    Pattern.MULTILINE);
 
     public final static String DATE_FORMAT = "EEEE d MMMM yyyy HH:mm";
     public final static String TEMP_FORMAT = "EEEE d MMMM yyyy";
@@ -202,23 +209,23 @@ public class Diary extends Activity
     public final static String TEXT_JAVASCRIPT = "text/javascript";
     public final static String APPLICATION_ZIP = "application/zip";
     public final static String FILE_PROVIDER =
-        "org.billthefarmer.diary.fileprovider";
+            "org.billthefarmer.diary.fileprovider";
 
     public final static String MEDIA_TEMPLATE = "![%s](%s)";
     public final static String LINK_TEMPLATE = "[%s](%s)";
     public final static String INDEX_TEMPLATE = "<<date>>";
     public final static String AUDIO_TEMPLATE =
-        "<audio controls src=\"%s\"></audio>";
+            "<audio controls src=\"%s\"></audio>";
     public final static String VIDEO_TEMPLATE =
-        "<video controls src=\"%s\"></video>";
+            "<video controls src=\"%s\"></video>";
     public final static String EVENT_TEMPLATE = "@:$1 $2";
     public final static String MAP_TEMPLATE =
-        "<iframe width=\"560\" height=\"420\" " +
-        "src=\"https://www.openstreetmap.org/export/embed.html?" +
-        "bbox=%f,%f,%f,%f&amp;layer=mapnik\">" +
-        "</iframe><br/><small>" +
-        "<a href=\"https://www.openstreetmap.org/#map=16/%f/%f\">" +
-        "View Larger Map</a></small>";
+            "<iframe width=\"560\" height=\"420\" " +
+                    "src=\"https://www.openstreetmap.org/export/embed.html?" +
+                    "bbox=%f,%f,%f,%f&amp;layer=mapnik\">" +
+                    "</iframe><br/><small>" +
+                    "<a href=\"https://www.openstreetmap.org/#map=16/%f/%f\">" +
+                    "View Larger Map</a></small>";
     public final static String GEO_TEMPLATE = "![osm](geo:%f,%f)";
     public final static String POSN_TEMPLATE = "[#]: # (%d)";
     public final static String EVENTS_TEMPLATE = "@:%s %s\n";
@@ -296,98 +303,243 @@ public class Diary extends Activity
     private View accept;
     private View edit;
 
+        private final static int APP_STORAGE_ACCESS_REQUEST_CODE = 501;
+        private static final int REQUEST_STORAGE_PERMISSIONS = 123;
+        private static final int REQUEST_MEDIA_PERMISSIONS = 456;
+        private final String readPermission = permission.READ_EXTERNAL_STORAGE;
+        private final String writePermission = permission.WRITE_EXTERNAL_STORAGE;
+
+        private void checkPermissions() {
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
+                //As the device is Android 13 and above so I want the permission of accessing Audio, Images, Videos
+                //You can ask permission according to your requirements what you want to access.
+                String audioPermission = Manifest.permission.READ_MEDIA_AUDIO;
+                String imagesPermission = permission.READ_MEDIA_IMAGES;
+                String videoPermission = permission.READ_MEDIA_VIDEO;
+                // Check for permissions and request them if needed
+                if (ContextCompat.checkSelfPermission(Diary.this, audioPermission) == PackageManager.PERMISSION_GRANTED &&
+                        ContextCompat.checkSelfPermission(Diary.this, imagesPermission) == PackageManager.PERMISSION_GRANTED &&
+                        ContextCompat.checkSelfPermission(Diary.this, videoPermission) == PackageManager.PERMISSION_GRANTED) {
+                    // You have the permissions, you can proceed with your media file operations.
+                    //Showing dialog when Show Dialog button is clicked.
+                    // dialog.show();
+                } else {
+                    // You don't have the permissions. Request them.
+                    ActivityCompat.requestPermissions(Diary.this, new String[]{audioPermission, imagesPermission, videoPermission}, REQUEST_MEDIA_PERMISSIONS);
+                }
+            } else {
+                //Android version is below 13 so we are asking normal read and write storage permissions
+                // Check for permissions and request them if needed
+                if (ContextCompat.checkSelfPermission(Diary.this, readPermission) == PackageManager.PERMISSION_GRANTED &&
+                        ContextCompat.checkSelfPermission(Diary.this, writePermission) == PackageManager.PERMISSION_GRANTED) {
+                    // You have the permissions, you can proceed with your file operations.
+                    // Show the file picker dialog when needed
+                    // dialog.show();
+                } else {
+                    // You don't have the permissions. Request them.
+                    ActivityCompat.requestPermissions(Diary.this, new String[]{readPermission, writePermission}, REQUEST_STORAGE_PERMISSIONS);
+                }
+            }
+        }
+
+        @Override
+        public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+            switch (requestCode)
+            {
+            case REQUEST_STORAGE_PERMISSIONS:
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    // Permissions were granted. You can proceed with your file operations.
+                    //Showing dialog when Show Dialog button is clicked.
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        //Android version is 11 and above so to access all types of files we have to give
+                        //special permission so show user a dialog..
+                        accessAllFilesPermissionDialog();
+                    } else {
+                        //Android version is 10 and below so need of special permission...
+                        // dialog.show();
+                    }
+                } else {
+                    // Permissions were denied. Show a rationale dialog or inform the user about the importance of these permissions.
+                    showRationaleDialog();
+                }
+                break;
+
+            case REQUEST_MEDIA_PERMISSIONS:   //This conditions only works on Android 13 and above versions
+                if (grantResults.length > 0 && areAllPermissionsGranted(grantResults)) {
+                    // Permissions were granted. You can proceed with your media file operations.
+                    //Showing dialog when Show Dialog button is clicked.
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        //Android version is 11 and above so to access all types of files we have to give
+                        //special permission so show user a dialog..
+                        accessAllFilesPermissionDialog();
+                    }
+                } else {
+                    // Permissions were denied. Show a rationale dialog or inform the user about the importance of these permissions.
+                    showRationaleDialog();
+                }
+                break;
+
+            case REQUEST_WRITE:
+                for (int i = 0; i < grantResults.length; i++)
+                    if (permissions[i].equals(permission
+                            .WRITE_EXTERNAL_STORAGE) &&
+                            grantResults[i] == PackageManager.PERMISSION_GRANTED)
+                        // Granted, save
+                        save();
+                break;
+
+            case REQUEST_READ:
+                for (int i = 0; i < grantResults.length; i++)
+                    if (permissions[i].equals(permission
+                            .READ_EXTERNAL_STORAGE) &&
+                            grantResults[i] == PackageManager.PERMISSION_GRANTED)
+                        // Granted, load
+                        load();
+                break;
+
+            case REQUEST_TEMPLATE:
+                for (int i = 0; i < grantResults.length; i++)
+                    if (permissions[i].equals(permission
+                            .READ_EXTERNAL_STORAGE) &&
+                            grantResults[i] == PackageManager.PERMISSION_GRANTED)
+                        // Granted, template
+                        template();
+                break;
+            }
+        }
+
+
+    private boolean areAllPermissionsGranted(int[] grantResults) {
+            for (int result : grantResults) {
+                if (result != PackageManager.PERMISSION_GRANTED) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private void showRationaleDialog() {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this, readPermission) ||
+                    ActivityCompat.shouldShowRequestPermissionRationale(this, writePermission) ) {
+                // Show a rationale dialog explaining why the permissions are necessary.
+                new AlertDialog.Builder(this)
+                        .setTitle("Permission Needed")
+                        .setMessage("This app needs storage permissions to read and write files.")
+                        .setPositiveButton("OK", (dialog, which) -> {
+                            // Request permissions when the user clicks OK.
+                            ActivityCompat.requestPermissions(Diary.this, new String[]{readPermission, writePermission}, REQUEST_STORAGE_PERMISSIONS);
+                        })
+                        .setNegativeButton("Cancel", (dialog, which) -> {
+                            dialog.dismiss();
+                            // Handle the case where the user cancels the permission request.
+                        })
+                        .show();
+            } else {
+                // Request permissions directly if no rationale is needed.
+                ActivityCompat.requestPermissions(this, new String[]{readPermission, writePermission}, REQUEST_STORAGE_PERMISSIONS);
+            }
+        }
+
+        // @RequiresApi(api = Build.VERSION_CODES.R)
+        private void accessAllFilesPermissionDialog() {
+
+            new AlertDialog.Builder(this)
+                    .setTitle("Permission Needed")
+                    .setMessage("This app needs all files access permissions to view files from your storage. Clicking on OK will redirect you to new window were you have to enable the option.")
+                    .setPositiveButton("OK", (myDialog, which) -> {
+                        // Request permissions when the user clicks OK.
+                        Intent intent = new Intent(ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:" + BuildConfig.APPLICATION_ID));
+                        startActivityForResult(intent, APP_STORAGE_ACCESS_REQUEST_CODE);
+                    })
+                    .setNegativeButton("Cancel", (myDialog, which) -> {
+                        myDialog.dismiss();
+                        // Handle the case where the user cancels the permission request.
+                        // dialog.show();
+                    })
+                    .show();
+        }
+
+
+
+
     // sortFiles
-    public static File[] sortFiles(File[] files)
-    {
+    public static File[] sortFiles(File[] files) {
         if (files == null)
             return new File[0];
         // compare
         Arrays.sort(files, (file1, file2) ->
-                    file2.getName().compareTo(file1.getName()));
+                file2.getName().compareTo(file1.getName()));
         return files;
     }
 
     // listYears
-    public static File[] listYears(File home)
-    {
+    public static File[] listYears(File home) {
         // accept
         return sortFiles(home.listFiles((dir, filename) ->
-                                        filename.matches(YEAR_DIR)));
+                filename.matches(YEAR_DIR)));
     }
 
     // listMonths
-    public static File[] listMonths(File yearDir)
-    {
+    public static File[] listMonths(File yearDir) {
         // accept
         return sortFiles(yearDir.listFiles((dir, filename) ->
-                                           filename.matches(MONTH_DIR)));
+                filename.matches(MONTH_DIR)));
     }
 
     // listDays
-    public static File[] listDays(File monthDir)
-    {
+    public static File[] listDays(File monthDir) {
         // accept
         return sortFiles(monthDir.listFiles((dir, filename) ->
-                                            filename.matches(DAY_FILE)));
+                filename.matches(DAY_FILE)));
     }
 
     // yearValue
-    public static int yearValue(File yearDir)
-    {
+    public static int yearValue(File yearDir) {
         return Integer.parseInt(yearDir.getName());
     }
 
     // monthValue
-    public static int monthValue(File monthDir)
-    {
+    public static int monthValue(File monthDir) {
         return Integer.parseInt(monthDir.getName()) - 1;
     }
 
     // dayValue
-    public static int dayValue(File dayFile)
-    {
+    public static int dayValue(File dayFile) {
         return Integer.parseInt(dayFile.getName().split("\\.")[0]);
     }
 
     // read
-    public static StringBuilder read(File file)
-    {
+    public static StringBuilder read(File file) {
         StringBuilder text = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new FileReader(file)))
-        {
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
-            while ((line = reader.readLine()) != null)
-            {
+            while ((line = reader.readLine()) != null) {
                 text.append(line);
                 text.append(System.getProperty("line.separator"));
                 if (text.length() >= LARGE_SIZE)
                     break;
             }
+        } catch (Exception e) {
         }
-
-        catch (Exception e) {}
 
         return text;
     }
 
     // parseTime
-    public static long parseTime(File file)
-    {
+    public static long parseTime(File file) {
         Matcher matcher = FILE_PATTERN.matcher(file.getPath());
-        if (matcher.find())
-        {
-            try
-            {
+        if (matcher.find()) {
+            try {
                 int year = Integer.parseInt(matcher.group(1));
                 int month = Integer.parseInt(matcher.group(2)) - 1;
                 int dayOfMonth = Integer.parseInt(matcher.group(3));
 
                 return new GregorianCalendar
-                    (year, month, dayOfMonth).getTimeInMillis();
-            }
-
-            catch (NumberFormatException e)
-            {
+                        (year, month, dayOfMonth).getTimeInMillis();
+            } catch (NumberFormatException e) {
                 return -1;
             }
         }
@@ -396,16 +548,13 @@ public class Diary extends Activity
     }
 
     // listEntries
-    public static void listEntries(File directory, List<File> fileList)
-    {
+    public static void listEntries(File directory, List<File> fileList) {
         // Get all entry files from a directory.
         File[] files = directory.listFiles();
-        if (files != null)
-        {
+        if (files != null) {
             // Sort files, reverse order
             Arrays.sort(files, Collections.reverseOrder());
-            for (File file : files)
-            {
+            for (File file : files) {
                 if (file.isFile() && file.getName().matches(DAY_FILE))
                     fileList.add(file);
 
@@ -416,18 +565,15 @@ public class Diary extends Activity
     }
 
     // listFiles
-    public static void listFiles(File directory, List<File> fileList)
-    {
+    public static void listFiles(File directory, List<File> fileList) {
         // Get all entry files from a directory.
         File[] files = directory.listFiles();
         if (files != null)
-            for (File file : files)
-            {
+            for (File file : files) {
                 if (file.isFile())
                     fileList.add(file);
 
-                else if (file.isDirectory())
-                {
+                else if (file.isDirectory()) {
                     fileList.add(file);
                     listFiles(file, fileList);
                 }
@@ -436,8 +582,7 @@ public class Diary extends Activity
 
     // onCreate
     @Override
-    protected void onCreate(Bundle savedInstanceState)
-    {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         // Get preferences
@@ -446,28 +591,26 @@ public class Diary extends Activity
         Configuration config = getResources().getConfiguration();
         int night = config.uiMode & Configuration.UI_MODE_NIGHT_MASK;
 
-        switch (theme)
-        {
-        case LIGHT:
-            setTheme(R.style.AppTheme);
-            break;
-
-        case DARK:
-            setTheme(R.style.AppDarkTheme);
-            break;
-
-        case SYSTEM:
-            switch (night)
-            {
-            case Configuration.UI_MODE_NIGHT_NO:
+        switch (theme) {
+            case LIGHT:
                 setTheme(R.style.AppTheme);
                 break;
 
-            case Configuration.UI_MODE_NIGHT_YES:
+            case DARK:
                 setTheme(R.style.AppDarkTheme);
                 break;
-            }
-            break;
+
+            case SYSTEM:
+                switch (night) {
+                    case Configuration.UI_MODE_NIGHT_NO:
+                        setTheme(R.style.AppTheme);
+                        break;
+
+                    case Configuration.UI_MODE_NIGHT_YES:
+                        setTheme(R.style.AppDarkTheme);
+                        break;
+                }
+                break;
         }
 
         setContentView(R.layout.main);
@@ -490,24 +633,23 @@ public class Diary extends Activity
         setListeners();
 
         gestureDetector =
-            new GestureDetector(this, new GestureListener());
+                new GestureDetector(this, new GestureListener());
 
         entryStack = new ArrayDeque<>();
 
         // Check startup
-        if (savedInstanceState == null)
-        {
+        if (savedInstanceState == null) {
             Intent intent = getIntent();
 
             // Check index and start from launcher
             if (useIndex && Intent.ACTION_MAIN.equals(intent.getAction()))
                 index();
 
-            // Check start from widget
+                // Check start from widget
             else if (intent.hasExtra(DiaryWidgetProvider.ENTRY))
                 changeDate(intent.getLongExtra(DiaryWidgetProvider.ENTRY,
-                                               new Date().getTime()));
-            // Set the date
+                        new Date().getTime()));
+                // Set the date
             else
                 today();
 
@@ -518,14 +660,13 @@ public class Diary extends Activity
 
     // onRestoreInstanceState
     @Override
-    public void onRestoreInstanceState(Bundle savedInstanceState)
-    {
+    public void onRestoreInstanceState(Bundle savedInstanceState) {
         super.onRestoreInstanceState(savedInstanceState);
         markdownView.restoreState(savedInstanceState);
 
         setDate(new GregorianCalendar(savedInstanceState.getInt(YEAR),
-                                      savedInstanceState.getInt(MONTH),
-                                      savedInstanceState.getInt(DAY)));
+                savedInstanceState.getInt(MONTH),
+                savedInstanceState.getInt(DAY)));
 
         shown = savedInstanceState.getBoolean(SHOWN);
         entry = savedInstanceState.getBoolean(ENTRY);
@@ -534,8 +675,7 @@ public class Diary extends Activity
 
     // onResume
     @Override
-    protected void onResume()
-    {
+    protected void onResume() {
         super.onResume();
 
         int last = theme;
@@ -559,9 +699,9 @@ public class Diary extends Activity
 
         // Copy help text to today's page if no entries
         if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
-            checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-             == PackageManager.PERMISSION_GRANTED) &&
-            prevEntry == null && nextEntry == null && textView.length() == 0)
+                checkSelfPermission(permission.WRITE_EXTERNAL_STORAGE)
+                        == PackageManager.PERMISSION_GRANTED) &&
+                prevEntry == null && nextEntry == null && textView.length() == 0)
             textView.setText(readAssetFile(HELP));
 
         if (markdown && changed)
@@ -572,13 +712,11 @@ public class Diary extends Activity
 
     // onSaveInstanceState
     @Override
-    protected void onSaveInstanceState(Bundle outState)
-    {
+    protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         markdownView.saveState(outState);
 
-        if (currEntry != null)
-        {
+        if (currEntry != null) {
             outState.putInt(YEAR, currEntry.get(Calendar.YEAR));
             outState.putInt(MONTH, currEntry.get(Calendar.MONTH));
             outState.putInt(DAY, currEntry.get(Calendar.DATE));
@@ -591,12 +729,10 @@ public class Diary extends Activity
 
     // onPause
     @Override
-    public void onPause()
-    {
+    public void onPause() {
         super.onPause();
 
-        if (changed)
-        {
+        if (changed) {
             save();
             // Clear flag
             changed = false;
@@ -607,8 +743,7 @@ public class Diary extends Activity
 
     // onCreateOptionsMenu
     @Override
-    public boolean onCreateOptionsMenu(Menu menu)
-    {
+    public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater inflater = getMenuInflater();
         inflater.inflate(R.menu.main, menu);
 
@@ -617,16 +752,15 @@ public class Diary extends Activity
 
     // onPrepareOptionsMenu
     @Override
-    public boolean onPrepareOptionsMenu(Menu menu)
-    {
+    public boolean onPrepareOptionsMenu(Menu menu) {
         Calendar today = GregorianCalendar.getInstance();
         menu.findItem(R.id.today).setEnabled(currEntry == null ||
-                                             currEntry.get(Calendar.YEAR) !=
-                                             today.get(Calendar.YEAR) ||
-                                             currEntry.get(Calendar.MONTH) !=
-                                             today.get(Calendar.MONTH) ||
-                                             currEntry.get(Calendar.DATE) !=
-                                             today.get(Calendar.DATE));
+                currEntry.get(Calendar.YEAR) !=
+                        today.get(Calendar.YEAR) ||
+                currEntry.get(Calendar.MONTH) !=
+                        today.get(Calendar.MONTH) ||
+                currEntry.get(Calendar.DATE) !=
+                        today.get(Calendar.DATE));
         menu.findItem(R.id.nextEntry).setEnabled(nextEntry != null);
         menu.findItem(R.id.prevEntry).setEnabled(prevEntry != null);
         menu.findItem(R.id.cancel).setVisible(changed);
@@ -638,8 +772,7 @@ public class Diary extends Activity
         searchView = (SearchView) searchItem.getActionView();
 
         // Set up search view options and listener
-        if (searchView != null)
-        {
+        if (searchView != null) {
             searchView.setSubmitButtonEnabled(true);
             searchView.setImeOptions(EditorInfo.IME_ACTION_GO);
             searchView.setOnQueryTextListener(new QueryTextListener());
@@ -656,80 +789,95 @@ public class Diary extends Activity
 
     // onOptionsItemSelected
     @Override
-    public boolean onOptionsItemSelected(MenuItem item)
-    {
-        switch (item.getItemId())
-        {
-        case android.R.id.home:
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.prev) {
             onBackPressed();
-            break;
-        case R.id.cancel:
-            cancel();
-            break;
-        case R.id.prevEntry:
+            finish();
+            return true;
+        } else if (id == R.id.cancel) {
+            onBackPressed();
+            finish();
+            return true;
+        } else if (id == R.id.prevEntry) {
             prevEntry();
-            break;
-        case R.id.nextEntry:
+            finish();
+            return true;
+        } else if (id == R.id.nextEntry) {
             nextEntry();
-            break;
-        case R.id.today:
+            finish();
+            return true;
+        } else if (id == R.id.today) {
             today();
-            break;
-        case R.id.goToDate:
+            finish();
+            return true;
+        } else if (id == R.id.goToDate) {
             goToDate(currEntry);
-            break;
-        case R.id.index:
+            finish();
+            return true;
+        } else if (id == R.id.index) {
             index();
-            break;
-        case R.id.link:
+            finish();
+            return true;
+        } else if (id == R.id.link) {
             addIndexLink();
-            break;
-        case R.id.findAll:
+            finish();
+            return true;
+        } else if (id == R.id.findAll) {
             findAll();
-            break;
-        case R.id.print:
+            finish();
+            return true;
+        } else if (id == R.id.print) {
             print();
-            break;
-        case R.id.share:
+            finish();
+            return true;
+        } else if (id == R.id.share) {
             share();
-            break;
-        case R.id.addTime:
+            finish();
+            return true;
+        } else if (id == R.id.addTime) {
             addTime();
-            break;
-        case R.id.addEvents:
+            finish();
+            return true;
+        } else if (id == R.id.addEvents) {
             addEvents();
-            break;
-        case R.id.addMedia:
+            finish();
+            return true;
+        } else if (id == R.id.addMedia) {
             addMedia();
-            break;
-        case R.id.editStyles:
+            finish();
+            return true;
+        } else if (id == R.id.editStyles) {
             editStyles();
-            break;
-        case R.id.editScript:
+            finish();
+            return true;
+        } else if (id == R.id.editScript) {
             editScript();
-            break;
-        case R.id.backup:
+            finish();
+            return true;
+        } else if (id == R.id.backup) {
             backup();
-            break;
-        case R.id.settings:
+            finish();
+            return true;
+        } else if (id == R.id.settings) {
             settings();
-            break;
-        default:
+            finish();
+            return true;
+        } else {
             return super.onOptionsItemSelected(item);
         }
 
-        // Close text search
-        if (searchItem.isActionViewExpanded() &&
-                item.getItemId() != R.id.findAll)
-            searchItem.collapseActionView();
 
-        return true;
-    }
+            // Close text search
+            //if (searchItem.isActionViewExpanded() && item.getItemId() != R.id.findAll)
+            //    searchItem.collapseActionView();
+            //return true;
+        }
+
 
     // onBackPressed
     @Override
-    public void onBackPressed()
-    {
+    public void onBackPressed()    {
         // Calendar entry
         if (entry)
         {
@@ -758,9 +906,7 @@ public class Diary extends Activity
 
     // onActivityResult
     @Override
-    protected void onActivityResult(int requestCode, int resultCode,
-                                    Intent data)
-    {
+    protected void onActivityResult(int requestCode, int resultCode, Intent data)  {
         // Do nothing if cancelled
         if (resultCode != RESULT_OK)
             return;
@@ -809,6 +955,20 @@ public class Diary extends Activity
             uri = data.getData();
             ZipTask zipTask = new ZipTask(this);
             zipTask.execute(uri);
+            break;
+
+            case 9999:
+                // The result data contains a URI for the document or directory that
+                // the user selected.
+                if (data != null) {
+                    Uri treeUri = data.getData();
+                    folder = treeUri.getPath();
+                }
+                break;
+
+        case APP_STORAGE_ACCESS_REQUEST_CODE:
+            // Permission granted. Now resume your workflow.
+            // dialog.show();
             break;
         }
     }
@@ -1278,13 +1438,22 @@ public class Diary extends Activity
                                            DatePickerPreference.DEFAULT_VALUE);
         // Folder
         folder = preferences.getString(Settings.PREF_FOLDER, DIARY);
-        if (folder.isEmpty())
-            folder = DIARY;
+        if (folder.isEmpty() || (folder.equals(DIARY))) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP){
+                Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+                i.addCategory(Intent.CATEGORY_DEFAULT);
+                startActivityForResult(Intent.createChooser(i, "Choose storage directory"), 9999);
+            }
+
+
+
+        }
 
         // Link template
         template = preferences.getString(Settings.PREF_INDEX_TEMPLATE,
                                          INDEX_TEMPLATE);
     }
+
 
     // mediaCheck
     private void mediaCheck(Intent intent)
@@ -2207,56 +2376,19 @@ public class Diary extends Activity
         return null;
     }
 
-    // onRequestPermissionsResult
-    @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           String[] permissions,
-                                           int[] grantResults)
-    {
-        switch (requestCode)
-        {
-        case REQUEST_WRITE:
-            for (int i = 0; i < grantResults.length; i++)
-                if (permissions[i].equals(Manifest.permission
-                                          .WRITE_EXTERNAL_STORAGE) &&
-                    grantResults[i] == PackageManager.PERMISSION_GRANTED)
-                    // Granted, save
-                    save();
-            break;
-
-        case REQUEST_READ:
-            for (int i = 0; i < grantResults.length; i++)
-                if (permissions[i].equals(Manifest.permission
-                                          .READ_EXTERNAL_STORAGE) &&
-                    grantResults[i] == PackageManager.PERMISSION_GRANTED)
-                    // Granted, load
-                    load();
-            break;
-
-        case REQUEST_TEMPLATE:
-            for (int i = 0; i < grantResults.length; i++)
-                if (permissions[i].equals(Manifest.permission
-                                          .READ_EXTERNAL_STORAGE) &&
-                    grantResults[i] == PackageManager.PERMISSION_GRANTED)
-                    // Granted, template
-                    template();
-            break;
-        }
-    }
-
     // save
     private void save()
     {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
         {
-            if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            if (checkSelfPermission(permission.WRITE_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED)
             {
                 requestPermissions(new String[]
-                    {Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                     Manifest.permission.READ_EXTERNAL_STORAGE,
-                     Manifest.permission.WRITE_CALENDAR,
-                     Manifest.permission.READ_CALENDAR}, REQUEST_WRITE);
+                    {permission.WRITE_EXTERNAL_STORAGE,
+                     permission.READ_EXTERNAL_STORAGE,
+                     permission.WRITE_CALENDAR,
+                     permission.READ_CALENDAR}, REQUEST_WRITE);
 
                 return;
             }
@@ -2399,14 +2531,14 @@ public class Diary extends Activity
     {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
         {
-            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+            if (checkSelfPermission(permission.READ_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED)
             {
                 requestPermissions(new String[]
-                    {Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                     Manifest.permission.READ_EXTERNAL_STORAGE,
-                     Manifest.permission.WRITE_CALENDAR,
-                     Manifest.permission.READ_CALENDAR}, REQUEST_READ);
+                    {permission.WRITE_EXTERNAL_STORAGE,
+                     permission.READ_EXTERNAL_STORAGE,
+                     permission.WRITE_CALENDAR,
+                     permission.READ_CALENDAR}, REQUEST_READ);
 
                 return;
             }
@@ -2695,14 +2827,14 @@ public class Diary extends Activity
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
         {
-            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+            if (checkSelfPermission(permission.READ_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED)
             {
                 requestPermissions(new String[]
-                    {Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                     Manifest.permission.READ_EXTERNAL_STORAGE,
-                     Manifest.permission.WRITE_CALENDAR,
-                     Manifest.permission.READ_CALENDAR}, REQUEST_TEMPLATE);
+                    {permission.WRITE_EXTERNAL_STORAGE,
+                     permission.READ_EXTERNAL_STORAGE,
+                     permission.WRITE_CALENDAR,
+                     permission.READ_CALENDAR}, REQUEST_TEMPLATE);
 
                 return;
             }
